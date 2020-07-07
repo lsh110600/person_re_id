@@ -181,7 +181,9 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 now_batch_size,c,h,w = inputs.shape
                 if now_batch_size<opt.batchsize: # skip the last batch
                     continue
+                #print("input is: ")
                 #print(inputs.shape)
+                #batch_size = 32, c = 3, h = 256, w =128
                 # wrap them in Variable
                 if use_gpu:
                     inputs = Variable(inputs.cuda().detach())

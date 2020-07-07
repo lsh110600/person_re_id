@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function, division
-
+import time
 import argparse
 import torch
 import torch.nn as nn
@@ -18,6 +18,7 @@ import scipy.io
 import yaml
 import math
 from model import ft_net, ft_net_dense, ft_net_NAS, PCB, PCB_test
+import time
 
 #fp16
 try:
@@ -31,9 +32,9 @@ except ImportError: # will be 3.x series
 parser = argparse.ArgumentParser(description='Test')
 parser.add_argument('--gpu_ids',default='0', type=str,help='gpu_ids: e.g. 0  0,1,2  0,2')
 parser.add_argument('--which_epoch',default='last', type=str, help='0,1,2,3...or last')
-parser.add_argument('--test_dir',default='../Market/pytorch',type=str, help='./test_data')
+parser.add_argument('--test_dir',default='../Data2/pytorch',type=str, help='./test_data')
 parser.add_argument('--name', default='ft_ResNet50', type=str, help='save model path')
-parser.add_argument('--batchsize', default=256, type=int, help='batchsize')
+parser.add_argument('--batchsize', default=32, type=int, help='batchsize')
 parser.add_argument('--use_dense', action='store_true', help='use densenet121' )
 parser.add_argument('--PCB', action='store_true', help='use PCB' )
 parser.add_argument('--multi', action='store_true', help='use multiple query' )
@@ -49,7 +50,8 @@ with open(config_path, 'r') as stream:
 opt.fp16 = config['fp16'] 
 opt.PCB = config['PCB']
 opt.use_dense = config['use_dense']
-opt.use_NAS = config['use_NAS']
+opt.use_NAS = False
+#opt.use_NAS = config['use_NAS']
 opt.stride = config['stride']
 
 if 'nclasses' in config: # tp compatible with old config files
@@ -151,22 +153,26 @@ def extract_feature(model,dataloaders):
     for data in dataloaders:
         img, label = data
         n, c, h, w = img.size()
-        count += n
-        print(count)
+        #count += n
+        #print(count)
         ff = torch.FloatTensor(n,512).zero_().cuda()
         if opt.PCB:
             ff = torch.FloatTensor(n,2048,6).zero_().cuda() # we have six parts
-
+            
+        start = time.time()	
         for i in range(2):
             if(i==1):
                 img = fliplr(img)
+
             input_img = Variable(img.cuda())
+
             for scale in ms:
                 if scale != 1:
                     # bicubic is only  available in pytorch>= 1.1
                     input_img = nn.functional.interpolate(input_img, scale_factor=scale, mode='bicubic', align_corners=False)
-                outputs = model(input_img) 
+                outputs = model(input_img)
                 ff += outputs
+        print("time = ",(time.time() - start)*1000)
         # norm feature
         if opt.PCB:
             # feature size (n,2048,6)
@@ -237,6 +243,8 @@ else:
         #model[1].classifier = nn.Sequential()
     #else:
         model.classifier.classifier = nn.Sequential()
+
+print(model)
 
 # Change to test mode
 model = model.eval()
